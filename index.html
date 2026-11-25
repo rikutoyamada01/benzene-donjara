@@ -79,13 +79,15 @@
     .hud-top {
       position: relative;
       z-index: 15;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      justify-content: space-between;
       padding: 8px 16px 0;
       gap: 10px;
-      flex-wrap: nowrap;
     }
+    .hud-top > .turn-plate  { justify-self: start; }
+    .hud-top > .yaku-banner { justify-self: center; }
+    .hud-top > .hud-tools   { justify-self: end; }
 
     /* Turn Counter Plate */
     .turn-plate {
@@ -1044,7 +1046,7 @@
       <span><span class="key-cap">X</span>パス</span>
       <span><span class="key-cap">D</span>Hにもどす(-1T)</span>
       <span><span class="key-cap">Space</span>ベン！(アガリ)</span>
-      <span><span class="key-cap">R</span>役いちらん</span>
+      <span><span class="key-cap">R</span>役一覧</span>
     </footer>
   </div>
 
@@ -1114,7 +1116,7 @@
   <div id="recipe-modal" class="game-modal" onclick="if(event.target===this) closeModals()">
     <div class="modal-sheet">
       <div class="modal-head">
-        <span style="font-size:16px; font-weight:900;">📖 化合物（役）いちらん — 全32種</span>
+        <span style="font-size:16px; font-weight:900;">📖 化合物（役）一覧 — 全32種</span>
         <button class="game-mini-btn" onclick="closeModals()">とじる (Esc)</button>
       </div>
       <div id="recipe-grid" class="modal-grid"></div>
@@ -1612,6 +1614,7 @@
       state.selectedVertex = 0;
       state.turnsLeft = state.maxTurns;
       state.gameOver = false;
+      state.turnLocked = false;
       state.inCutin = false;
       state.lastMatchedKey = null;
       state.placedCount = 0;
@@ -1622,7 +1625,7 @@
     }
 
     function consumeTurn() {
-      state.turnsLeft -= 1;
+      state.turnsLeft = Math.max(0, state.turnsLeft - 1);
       const comp = lookupCompound(state.ring);
       if (comp && comp.canonical !== state.lastMatchedKey) {
         state.lastMatchedKey = comp.canonical;
@@ -1632,19 +1635,22 @@
       }
 
       if (state.turnsLeft <= 0) {
+        state.turnLocked = true;
         renderAll();
         setTimeout(() => triggerBen(true), 240);
       } else {
+        state.turnLocked = false;
         dealDraw();
         renderAll();
       }
     }
 
     function actionPlace() {
-      if (state.gameOver) return;
+      if (state.gameOver || state.turnLocked) return;
       const gKey = state.drawnOptions[state.selectedDraftIdx];
       if (!gKey) return;
 
+      state.turnLocked = true;
       const idx = state.selectedVertex;
       state.ring[idx] = gKey;
       state.placedCount += 1;
@@ -1664,13 +1670,15 @@
     }
 
     function actionPass() {
-      if (state.gameOver) return;
+      if (state.gameOver || state.turnLocked) return;
+      state.turnLocked = true;
       SFX.pass();
       consumeTurn();
     }
 
     function actionRemoveToH() {
-      if (state.gameOver || state.ring[state.selectedVertex] === 'H') return;
+      if (state.gameOver || state.turnLocked || state.ring[state.selectedVertex] === 'H') return;
+      state.turnLocked = true;
       state.ring[state.selectedVertex] = 'H';
       SFX.remove();
       consumeTurn();
