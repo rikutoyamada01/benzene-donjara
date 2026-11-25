@@ -88,3 +88,18 @@ Git / GitHub の一般的な仕組みは各参考リンクに任せ、ここで�
 **なぜこのリポジトリでそうするのか**
 * メンバー間で Windows / Mac が混在したり、GitHub Pages（Linux）で公開した際に、大文字・小文字の違いや日本語ファイル名によるリンク切れ・文字化けを防ぐためです。
 * Web標準の命名に合わせておくと、今後ファイルを分割したり Joy-Con（WebHID）機能を追加する際も混乱せずに済みます。
+
+---
+
+## 7. 通知とコミュニケーションの設定
+
+* **全員の初期設定**:
+  1. リポジトリ右上の **`Watch`** → **`All Activity`** を選択する。
+  2. **GitHub 公式スマホアプリ**（iOS / Android）のプッシュ通知を ON にする（または [通知設定](https://github.com/settings/notifications) でメール通知を有効にする）。
+* **コメント時のルール**: 特定のメンバーに確認してほしい時は **`@ユーザー名`** でメンションする。PR作成時は右サイドバーの `Reviewers` に確認者を指定する。
+* 参考: [GitHub Docs — 通知を設定する](https://docs.github.com/ja/account-and-profile/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications)
+
+**なぜこのリポジトリでそうするのか**
+* LINE など外部チャットに議論が分散するのを防ぎ、すべてのやり取りを Issue / PR に集約して「いつ・何を決めたか」を後から追えるようにするためです。
+* 初期設定のままだと他メンバーの新規 Issue やコメントに気づけないため、`All Activity`＋プッシュ通知にして見逃しを防ぎます。
+
