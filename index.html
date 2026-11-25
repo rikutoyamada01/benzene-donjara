@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BENZENE!! — 芳香族ドンジャラ</title>
+  <style>
+    /* =========================================================================
+       RESET & FULL-VIEWPORT LOCK (Zero Scroll, Monitor / Arcade Game Canvas)
+       ========================================================================= */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+      background: #0d4a6b;
+      color: #111827;
+    }
+
+    /* =========================================================================
+       GAME STAGE BACKGROUND (Bright, energetic lab-game tabletop with subtle hex motion)
+       ========================================================================= */
+    #game-viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 64px 1fr 132px 30px;
+      background:
+        radial-gradient(circle at 50% 46%, #e0f2fe 0%, #bae6fd 38%, #38bdf8 82%, #0284c7 100%);
+    }
+
+    /* Scrolling subtle hex pattern for game energy (Sakurai #252) */
+    #bg-pattern {
+      position: absolute;
+      inset: -80px;
+      opacity: 0.14;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='96' viewBox='0 0 84 96'%3E%3Cpolygon points='42,4 80,26 80,70 42,92 4,70 4,26' fill='none' stroke='%230c4a6e' stroke-width='3'/%3E%3C/svg%3E");
+      background-size: 84px 96px;
+      animation: bgScroll 28s linear infinite;
+    }
+    @keyframes bgScroll {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(84px, 96px); }
+    }
+
+    /* Screen Shake Variants (Sakurai #103: distinct patterns for small vs big) */
+    .shake-small { animation: shakeSmall 0.18s linear; }
+    .shake-big   { animation: shakeBig 0.48s cubic-bezier(0.2, 0.9, 0.3, 1); }
+
+    @keyframes shakeSmall {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(0, -5px); }
+      55% { transform: translate(0, 4px); }
+      80% { transform: translate(0, -2px); }
+    }
+    @keyframes shakeBig {
+      0%, 100% { transform: translate(0, 0); }
+      12% { transform: translate(-14px, -9px) rotate(-0.8deg); }
+      26% { transform: translate(13px, 8px) rotate(0.7deg); }
+      42% { transform: translate(-10px, 7px) rotate(-0.5deg); }
+      58% { transform: translate(8px, -6px) rotate(0.4deg); }
+      76% { transform: translate(-4px, 3px); }
+    }
+
+    /* =========================================================================
+       TOP HUD BAR (Skewed Arcade Plates, Crisp Black Outlines, Hard Shadows)
+       ========================================================================= */
+    .hud-top {
+      position: relative;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 0;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+
+    /* Turn Counter Plate */
+    .turn-plate {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #111827;
+      color: #ffffff;
+      border: 3.5px solid #111827;
+      box-shadow: 4px 4px 0 #0c4a6e;
+      padding: 4px 12px;
+      transform: skewX(-10deg);
+      border-radius: 6px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .turn-plate > * { transform: skewX(10deg); }
+    .turn-label {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: #38bdf8;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+    .turn-num {
+      font-size: 28px;
+      font-weight: 900;
+      color: #facc15;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 2px 2px 0 #713f12;
+      min-width: 22px;
+      text-align: center;
+    }
+    .turn-pips {
+      display: flex;
+      gap: 3px;
+    }
+    .turn-pip {
+      width: 8px;
+      height: 20px;
+      background: #334155;
+      border: 2px solid #000000;
+      border-radius: 3px;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .turn-pip.active {
+      background: #facc15;
+      box-shadow: inset 0 -4px 0 #ca8a04;
+    }
+    .turn-pip.danger {
+      background: #ef4444;
+      box-shadow: inset 0 -4px 0 #991b1b;
+    }
+
+    /* Center Live Compound Banner (Pops dynamically when Yaku forms!) */
+    .yaku-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 18px;
+      border: 3.5px solid #111827;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 4px 4px 0 #111827;
+      transform: skewX(-8deg);
+      transition: background 0.18s, transform 0.18s;
+      justify-content: center;
+      white-space: nowrap;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .yaku-banner > * { transform: skewX(8deg); white-space: nowrap; }
+    .yaku-banner.yaku-active {
+      background: #fef08a;
+      box-shadow: 5px 5px 0 #111827;
+      animation: bannerPop 0.32s cubic-bezier(0.18, 1.35, 0.4, 1);
+    }
+    @keyframes bannerPop {
+      0% { transform: skewX(-8deg) scale(0.82); }
+      60% { transform: skewX(-8deg) scale(1.08); }
+      100% { transform: skewX(-8deg) scale(1); }
+    }
+    .yaku-rank-tag {
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 2.5px solid #111827;
+      background: #f97316;
+      color: #ffffff;
+      display: none;
+      flex-shrink: 0;
+    }
+    .yaku-banner.yaku-active .yaku-rank-tag { display: inline-block; }
+    .yaku-name-txt {
+      font-size: clamp(14px, 1.6vw, 19px);
+      font-weight: 900;
+      color: #111827;
+      letter-spacing: 0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .yaku-pt-txt {
+      font-size: clamp(14px, 1.5vw, 18px);
+      font-weight: 900;
+      color: #dc2626;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Top-right compact utility buttons */
+    .hud-tools {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .game-mini-btn {
+      height: 36px;
+      padding: 0 9px;
+      background: #ffffff;
+      color: #111827;
+      border: 3px solid #111827;
+      border-radius: 8px;
+      box-shadow: 0 3px 0 #111827;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: transform 0.08s, box-shadow 0.08s, background 0.1s;
+    }
+    .game-mini-btn:hover { background: #fef9c3; }
+    .game-mini-btn:active { transform: translateY(3px); box-shadow: 0 0 0 #111827; }
+    .game-mini-btn.is-on { background: #38bdf8; color: #111827; }
+
+    /* =========================================================================
+       CENTER STAGE: HUGE BENZENE RING BOARD (Hero Element - Sakurai #145)
+       ========================================================================= */
+    .stage-center {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    /* Ring wrapper dynamically scales to available height so it NEVER overlaps top/bottom HUD */
+    #ring-board {
+      position: relative;
+      width: min(440px, calc(100vh - 268px), calc(100vw - 40px));
+      height: min(440px, calc(100vh - 268px), calc(100vw - 40px));
+      min-width: 240px;
+      min-height: 240px;
+    }
+
+    #benzene-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* Vertex Slot = Chunky Physical Game Tile */
+    .vertex-slot {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 20.5%;
+      height: 20.5%;
+      border-radius: 16px;
+      border: 4px solid #111827;
+      box-shadow: 0 6px 0 #111827, 0 10px 18px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.1s;
+    }
+    .vertex-slot:hover {
+      transform: translate(-50%, -54%) scale(1.05);
+    }
+    .vertex-slot.selected {
+      transform: translate(-50%, -55%) scale(1.13);
+      border-color: #111827;
+      box-shadow: 0 0 0 5px #facc15, 0 0 0 8.5px #111827, 0 10px 20px rgba(0, 0, 0, 0.35);
+      z-index: 25;
+    }
+    .vertex-slot.is-h {
+      border-style: dashed;
+      background: #f8fafc !important;
+      color: #64748b !important;
+      box-shadow: 0 4px 0 #475569;
+    }
+    .vertex-slot.selected.is-h {
+      border-style: solid;
+      background: #fef9c3 !important;
+      color: #111827 !important;
+    }
+    .vertex-slot.reach-hint {
+      animation: reachBounce 0.75s ease-in-out infinite;
+    }
+    @keyframes reachBounce {
+      0%, 100% { box-shadow: 0 6px 0 #111827, 0 0 0 4px #ef4444; }
+      50% { box-shadow: 0 6px 0 #111827, 0 0 0 9px #facc15; }
+    }
+    .vertex-slot.slam-in {
+      animation: tileSlam 0.24s cubic-bezier(0.15, 1.5, 0.4, 1);
+    }
+    @keyframes tileSlam {
+      0% { transform: translate(-50%, -50%) scale(1.48); }
+      65% { transform: translate(-50%, -50%) scale(0.92); }
+      100% { transform: translate(-50%, -50%) scale(1.13); }
+    }
+    /* Flip-down animation when BEN!! triggers (like Mahjong/Donjara tile reveal!) */
+    .vertex-slot.ben-flip {
+      animation: tileFlipDown 0.36s cubic-bezier(0.2, 1.3, 0.4, 1) forwards;
+    }
+    @keyframes tileFlipDown {
+      0% { transform: translate(-50%, -50%) perspective(300px) rotateX(0deg) scale(1); }
+      45% { transform: translate(-50%, -62%) perspective(300px) rotateX(55deg) scale(1.18); }
+      100% { transform: translate(-50%, -50%) perspective(300px) rotateX(0deg) scale(1.08); }
+    }
+
+    .vertex-pos-badge {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #111827;
+      color: #ffffff;
+      border: 2.5px solid #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+    }
+    .vertex-slot.selected .vertex-pos-badge {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #facc15;
+    }
+
+    .vertex-formula {
+      font-size: clamp(15px, 2.4vmin, 24px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .vertex-subname {
+      font-size: clamp(8px, 1.05vmin, 10px);
+      font-weight: 800;
+      margin-top: 3px;
+      opacity: 0.85;
+      white-space: nowrap;
+    }
+
+    /* Situational Floating Reach Callout (Right side of stage, ONLY visible on Reach! Sakurai #252) */
+    #reach-callout {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 235px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 20;
+    }
+    #reach-callout.visible { display: flex; }
+    .reach-header {
+      align-self: flex-start;
+      background: #ef4444;
+      color: #ffffff;
+      border: 3px solid #111827;
+      box-shadow: 3px 3px 0 #111827;
+      padding: 3px 12px;
+      font-size: 13px;
+      font-weight: 900;
+      transform: skewX(-10deg);
+      border-radius: 5px;
+    }
+    .reach-header span { display: inline-block; transform: skewX(10deg); }
+    .reach-card {
+      background: #ffffff;
+      border: 3px solid #111827;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #111827;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.1s;
+    }
+    .reach-card:hover { transform: translateX(-4px); background: #fef9c3; }
+    .reach-card.in-hand {
+      background: #fef08a;
+      border-color: #111827;
+      box-shadow: 4px 4px 0 #dc2626;
+    }
+
+    /* =========================================================================
+       BOTTOM CONSOLE DOCK (Donjara Hand + Big A-Button Action + BEN!! Lever)
+       ========================================================================= */
+    .hud-bottom {
+      position: relative;
+      z-index: 15;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 18px 8px;
+      gap: 14px;
+    }
+
+    /* Drawn Tile Tray (Physical Mahjong/Donjara Stand) */
+    .hand-dock {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: #1e293b;
+      border: 4px solid #111827;
+      border-radius: 16px;
+      box-shadow: 0 6px 0 #0f172a;
+      padding: 20px 14px 10px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .hand-dock-tag {
+      position: absolute;
+      top: -15px;
+      left: 12px;
+      z-index: 10;
+      background: #38bdf8;
+      color: #111827;
+      border: 2.5px solid #111827;
+      border-radius: 6px;
+      padding: 1px 10px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: 2px 2px 0 #111827;
+    }
+
+    /* Physical Donjara Tile */
+    .donjara-tile {
+      width: 78px;
+      height: 86px;
+      border-radius: 12px;
+      border: 3.5px solid #111827;
+      box-shadow: 0 6px 0 #111827;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.12s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.12s;
+    }
+    .donjara-tile:hover { transform: translateY(-3px); }
+    .donjara-tile.chosen {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 0 0 4px #facc15, 0 8px 0 #111827;
+    }
+    .tile-pt-pill {
+      position: absolute;
+      top: 4px;
+      right: 5px;
+      font-size: 10px;
+      font-weight: 900;
+      background: rgba(17, 24, 39, 0.85);
+      color: #facc15;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .tile-formula { font-size: 22px; font-weight: 900; line-height: 1; margin-top: 6px; }
+    .tile-jp { font-size: 10px; font-weight: 800; margin-top: 4px; }
+
+    /* Center Action Cluster (Big Primary "PLACE" Button = GameCube A-Button philosophy, Sakurai #145) */
+    .action-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      justify-content: center;
+      max-width: 440px;
+      min-width: 0;
+    }
+
+    .btn-primary-place {
+      flex: 1.5;
+      height: 78px;
+      background: #22c55e;
+      color: #ffffff;
+      border: 4px solid #111827;
+      border-radius: 18px;
+      box-shadow: 0 7px 0 #111827;
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 2px 0 #14532d;
+      white-space: nowrap;
+      transition: transform 0.08s, box-shadow 0.08s, background 0.1s;
+    }
+    .btn-primary-place:hover { background: #16a34a; }
+    .btn-primary-place:active { transform: translateY(6px); box-shadow: 0 1px 0 #111827; }
+
+    .sub-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .btn-sub-action {
+      height: 35px;
+      padding: 0 10px;
+      border: 3px solid #111827;
+      border-radius: 10px;
+      box-shadow: 0 4px 0 #111827;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      white-space: nowrap;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .btn-sub-action:active { transform: translateY(3px); box-shadow: 0 1px 0 #111827; }
+    .btn-sub-action:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-pass { background: #e2e8f0; color: #111827; }
+    .btn-pass:hover { background: #cbd5e1; }
+    .btn-remove { background: #fda4af; color: #881337; }
+    .btn-remove:hover:not(:disabled) { background: #fb7185; color: #ffffff; }
+
+    /* HUGE "BEN!!" FINISHER BUTTON (Right Bottom) */
+    .btn-ben-finisher {
+      width: 240px;
+      height: 86px;
+      border-radius: 20px;
+      border: 4px solid #111827;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .btn-ben-finisher:disabled {
+      background: #94a3b8;
+      color: #334155;
+      box-shadow: 0 5px 0 #1e293b;
+      cursor: not-allowed;
+      opacity: 0.72;
+    }
+    .btn-ben-finisher:not(:disabled) {
+      background: linear-gradient(180deg, #fde047 0%, #f59e0b 100%);
+      color: #111827;
+      box-shadow: 0 8px 0 #111827, 0 0 0 4px #ffffff;
+      animation: benButtonPulse 0.72s ease-in-out infinite;
+    }
+    .btn-ben-finisher:not(:disabled):active {
+      transform: translateY(7px) !important;
+      box-shadow: 0 1px 0 #111827 !important;
+    }
+    @keyframes benButtonPulse {
+      0%, 100% { transform: scale(1) translateY(0); }
+      50% { transform: scale(1.045) translateY(-3px); }
+    }
+    .ben-btn-big {
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .ben-btn-sub {
+      font-size: 11px;
+      margin-top: 4px;
+      font-weight: 900;
+      white-space: nowrap;
+      max-width: 92%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* =========================================================================
+       BOTTOM HELP BAR (Sakurai #227: Always show plain-Japanese control help)
+       ========================================================================= */
+    .help-footer {
+      z-index: 15;
+      background: #111827;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 0 14px;
+      border-top: 3px solid #000000;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .key-cap {
+      display: inline-block;
+      background: #f8fafc;
+      color: #111827;
+      border: 2px solid #000000;
+      border-radius: 4px;
+      padding: 0 5px;
+      font-size: 11px;
+      font-weight: 900;
+      margin-right: 4px;
+      font-family: ui-monospace, monospace;
+    }
+
+    /* =========================================================================
+       FLASH & FX LAYERS (Sakurai #016 & #056 & #221: Black+White Flash, Crisp Polygons)
+       ========================================================================= */
+    #fx-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 52;
+    }
+    #flash-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 58;
+      opacity: 0;
+    }
+
+    /* =========================================================================
+       "BEN!!" CUT-IN & RESULT OVERLAY
+       ========================================================================= */
+    #ben-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 54;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.78);
+    }
+    #ben-overlay.show { display: flex; }
+
+    /* Comic Sunburst Behind Cut-in */
+    #sunburst {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 240vmax;
+      height: 240vmax;
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(250, 204, 21, 0.24) 0deg 6deg,
+        rgba(17, 24, 39, 0.0) 6deg 14deg
+      );
+      transform: translate(-50%, -50%);
+      animation: spinBurst 16s linear infinite;
+      pointer-events: none;
+      display: none;
+    }
+    @keyframes spinBurst {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to   { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* Phase 1: Massive Outlined "BEN!!" Cut-in (Sakurai #093) */
+    #cutin-box {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      z-index: 2;
+      text-align: center;
+    }
+    .cutin-word {
+      font-size: clamp(92px, 16vw, 170px);
+      font-weight: 900;
+      font-style: italic;
+      color: #facc15;
+      -webkit-text-stroke: 8px #111827;
+      paint-order: stroke fill;
+      text-shadow: 10px 10px 0 #111827;
+      line-height: 1;
+      animation: cutinSlam 0.45s cubic-bezier(0.12, 1.35, 0.3, 1) forwards;
+    }
+    @keyframes cutinSlam {
+      0%   { transform: scale(3.4) rotate(-14deg); opacity: 0; }
+      55%  { transform: scale(0.92) rotate(3deg); opacity: 1; }
+      100% { transform: scale(1) rotate(-2deg); opacity: 1; }
+    }
+    .cutin-ribbon {
+      margin-top: 12px;
+      background: #111827;
+      color: #38bdf8;
+      border: 3px solid #facc15;
+      padding: 6px 26px;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      transform: skewX(-12deg);
+    }
+
+    /* Phase 2: Crisp Arcade Result Panel with 3D Molecular Simulation Showcase */
+    #result-panel {
+      display: none;
+      position: relative;
+      z-index: 2;
+      width: min(880px, 94vw);
+      max-height: 90vh;
+      background: #ffffff;
+      border: 5px solid #111827;
+      border-radius: 22px;
+      box-shadow: 10px 10px 0 #111827;
+      padding: 20px 22px;
+      animation: panelPop 0.32s cubic-bezier(0.18, 1.3, 0.4, 1);
+    }
+    @keyframes panelPop {
+      0% { transform: scale(0.75) translateY(24px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    /* Left: 3D Molecular Simulation Stage */
+    .mol-stage-wrap {
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 45%, #1e293b 0%, #0f172a 75%, #090d16 100%);
+      border: 4px solid #111827;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      min-height: 360px;
+    }
+    .mol-stage-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      background: rgba(17, 24, 39, 0.9);
+      border-bottom: 2.5px solid #334155;
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    #mol-sim-canvas {
+      flex: 1;
+      width: 100%;
+      height: 265px;
+      display: block;
+      cursor: grab;
+    }
+    #mol-sim-canvas:active { cursor: grabbing; }
+    .mol-stage-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 7px 10px;
+      background: rgba(17, 24, 39, 0.94);
+      border-top: 2.5px solid #334155;
+    }
+    .mol-sim-btn {
+      height: 28px;
+      padding: 0 9px;
+      border-radius: 7px;
+      border: 2px solid #000000;
+      background: #334155;
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, transform 0.08s;
+    }
+    .mol-sim-btn:hover { background: #475569; }
+    .mol-sim-btn.is-hot { background: #ef4444; color: #ffffff; }
+    .mol-meta-txt {
+      font-size: 12px;
+      font-weight: 900;
+      color: #38bdf8;
+      font-family: ui-monospace, monospace;
+      white-space: nowrap;
+    }
+
+    /* Right: Info & Score Column */
+    .result-info-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+
+    /* Stamp-down Rank Badge */
+    #res-rank-stamp {
+      position: absolute;
+      top: -22px;
+      right: -14px;
+      width: 80px;
+      height: 80px;
+      border-radius: 999px;
+      border: 4px solid #111827;
+      box-shadow: 4px 4px 0 #111827;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      transform: rotate(10deg);
+      animation: stampSlam 0.35s 0.2s cubic-bezier(0.15, 1.5, 0.4, 1) backwards;
+    }
+    @keyframes stampSlam {
+      0% { transform: scale(2.8) rotate(-20deg); opacity: 0; }
+      100% { transform: scale(1) rotate(10deg); opacity: 1; }
+    }
+
+    .res-score-box {
+      background: #111827;
+      color: #facc15;
+      border: 4px solid #111827;
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .res-score-val {
+      font-size: 50px;
+      font-weight: 900;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 3px 3px 0 #713f12;
+    }
+
+    .res-trivia {
+      background: #f0f9ff;
+      border: 3px solid #0284c7;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      font-weight: 700;
+      color: #0c4a6e;
+      margin-bottom: 12px;
+    }
+
+    .btn-retry-big {
+      width: 100%;
+      height: 50px;
+      background: #22c55e;
+      color: #ffffff;
+      border: 4px solid #111827;
+      border-radius: 14px;
+      box-shadow: 0 5px 0 #111827;
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .btn-retry-big:hover { background: #16a34a; }
+    .btn-retry-big:active { transform: translateY(4px); box-shadow: 0 1px 0 #111827; }
+
+    /* =========================================================================
+       MODALS (Recipe Book & Ranking — Out of the way during gameplay!)
+       ========================================================================= */
+    .game-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: rgba(15, 23, 42, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .game-modal.open { display: flex; }
+    .modal-sheet {
+      background: #ffffff;
+      border: 5px solid #111827;
+      border-radius: 20px;
+      box-shadow: 10px 10px 0 #111827;
+      width: min(760px, 94vw);
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-head {
+      background: #111827;
+      color: #ffffff;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-grid {
+      padding: 14px;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .recipe-item {
+      background: #f8fafc;
+      border: 2.5px solid #111827;
+      border-radius: 10px;
+      padding: 8px 10px;
+      box-shadow: 3px 3px 0 #cbd5e1;
+    }
+
+    @media (max-width: 960px) {
+      #reach-callout { display: none !important; }
+      .btn-ben-finisher { width: 175px; }
+      .ben-btn-big { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Crisp Particle & Hit-Mark Canvas -->
+  <canvas id="fx-canvas"></canvas>
+  <!-- Black+White Impact Flash Layer -->
+  <div id="flash-layer"></div>
+
+  <div id="game-viewport">
+    <div id="bg-pattern"></div>
+
+    <!-- ================= TOP HUD ================= -->
+    <header class="hud-top">
+      <!-- Left: Turns -->
+      <div class="turn-plate">
+        <div>
+          <div class="turn-label">のこり</div>
+          <div class="turn-label">ターン</div>
+        </div>
+        <div id="turn-num" class="turn-num">6</div>
+        <div id="turn-pips" class="turn-pips"></div>
+      </div>
+
+      <!-- Center: Live Yaku Banner -->
+      <div id="yaku-banner" class="yaku-banner">
+        <span id="yaku-rank-tag" class="yaku-rank-tag">RANK A</span>
+        <span id="yaku-name-txt" class="yaku-name-txt">ベンゼン</span>
+        <span id="yaku-pt-txt" class="yaku-pt-txt">0 pt</span>
+      </div>
+
+      <!-- Right: Compact Game Tools -->
+      <div class="hud-tools">
+        <button id="btn-mode" class="game-mini-btn" onclick="cycleDrawMode()" title="引き方を切り替え">🎲 1枚</button>
+        <button id="btn-turns" class="game-mini-btn" onclick="cycleMaxTurns()" title="ターン数を切り替え">⏱ 6T</button>
+        <button class="game-mini-btn" onclick="openModal('recipe-modal')">📖 役</button>
+        <button class="game-mini-btn" onclick="openModal('ranking-modal')">🏆 順位</button>
+        <button id="btn-sound" class="game-mini-btn is-on" onclick="toggleSound()">🔊 音</button>
+        <button class="game-mini-btn" onclick="resetGame()" title="やり直す">↻</button>
+      </div>
+    </header>
+
+    <!-- ================= CENTER STAGE: BENZENE RING ================= -->
+    <main class="stage-center">
+      <div id="ring-board">
+        <svg id="benzene-svg" viewBox="0 0 400 400">
+          <!-- Outer bond sticks -->
+          <g id="svg-sticks" stroke="#111827" stroke-width="8" stroke-linecap="round"></g>
+          <!-- Thick Hexagon Shadow -->
+          <polygon points="200,98 288,149 288,251 200,302 112,251 112,149"
+            fill="rgba(17,24,39,0.22)" transform="translate(0, 8)" />
+          <!-- Hexagon Main Body -->
+          <polygon id="svg-hex" points="200,98 288,149 288,251 200,302 112,251 112,149"
+            fill="#ffffff" stroke="#111827" stroke-width="9" stroke-linejoin="round" />
+          <!-- Aromatic Inner Circle -->
+          <circle id="svg-ring" cx="200" cy="200" r="62"
+            fill="none" stroke="#0284c7" stroke-width="7" stroke-dasharray="18 10" />
+          <!-- Center Emblem -->
+          <text id="svg-center-title" x="200" y="196" text-anchor="middle" fill="#111827" font-size="24" font-weight="900">C₆</text>
+          <text id="svg-center-sub" x="200" y="218" text-anchor="middle" fill="#64748b" font-size="12" font-weight="900">BENZENE</text>
+        </svg>
+        <div id="vertex-layer"></div>
+      </div>
+
+      <!-- Situational Reach Callout (Hidden until Reach!) -->
+      <aside id="reach-callout">
+        <div class="reach-header"><span>🔥 あと1手で完成！</span></div>
+        <div id="reach-cards"></div>
+      </aside>
+    </main>
+
+    <!-- ================= BOTTOM CONSOLE DOCK ================= -->
+    <section class="hud-bottom">
+      <!-- Left: Physical Donjara Drawn Tile(s) -->
+      <div class="hand-dock">
+        <div id="hand-dock-tag" class="hand-dock-tag">ひいた牌</div>
+        <div id="drawn-tiles" style="display:flex; gap:10px;"></div>
+      </div>
+
+      <!-- Center: Big Primary Place Button + Secondary Actions -->
+      <div class="action-cluster">
+        <button id="btn-place" class="btn-primary-place" onclick="actionPlace()">
+          <span><span id="place-pos-label">1位</span> に おく！</span>
+          <span style="font-size:12px; opacity:0.92; margin-top:2px;">[Enter / Z]</span>
+        </button>
+
+        <div class="sub-actions">
+          <button id="btn-pass" class="btn-sub-action btn-pass" onclick="actionPass()">
+            <span>パス</span>
+            <span class="key-cap">X</span>
+          </button>
+          <button id="btn-remove" class="btn-sub-action btn-remove" onclick="actionRemoveToH()">
+            <span>Hにもどす</span>
+            <span class="key-cap">D</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Big BEN!! Finisher Trigger -->
+      <button id="btn-ben" class="btn-ben-finisher" onclick="triggerBen(false)" disabled>
+        <span class="ben-btn-big">
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="13,2 3,14 11,14 9,22 21,10 13,10" fill="#ef4444" stroke="#111827" stroke-width="2.2" stroke-linejoin="round"/>
+          </svg>
+          ベン！！
+        </span>
+        <span id="ben-btn-sub" class="ben-btn-sub">役ができたら Space</span>
+      </button>
+    </section>
+
+    <!-- ================= FOOTER HELP BAR ================= -->
+    <footer class="help-footer">
+      <span><span class="key-cap">←</span><span class="key-cap">→</span><span class="key-cap">1-6</span>ばしょをえらぶ</span>
+      <span><span class="key-cap">Enter</span>おく・こうかん</span>
+      <span><span class="key-cap">X</span>パス</span>
+      <span><span class="key-cap">D</span>Hにもどす(-1T)</span>
+      <span><span class="key-cap">Space</span>ベン！(アガリ)</span>
+      <span><span class="key-cap">R</span>役いちらん</span>
+    </footer>
+  </div>
+
+  <!-- ================= "BEN!!" CUT-IN & RESULT OVERLAY ================= -->
+  <div id="ben-overlay">
+    <div id="sunburst"></div>
+
+    <!-- Phase 1: Massive Cut-in -->
+    <div id="cutin-box">
+      <div id="cutin-word" class="cutin-word">ベン！！</div>
+      <div id="cutin-ribbon" class="cutin-ribbon">SYNTHESIS COMPLETE!</div>
+    </div>
+
+    <!-- Phase 2: Arcade Result Card with 3D Molecular Simulation -->
+    <div id="result-panel">
+      <div id="res-rank-stamp">
+        <span style="font-size:11px; line-height:1;">RANK</span>
+        <span id="res-rank-letter" style="font-size:32px; line-height:1;">S</span>
+      </div>
+
+      <div class="result-grid">
+        <!-- Left: 3D Molecular Physics Simulation -->
+        <div class="mol-stage-wrap">
+          <div class="mol-stage-head">
+            <span>⚛ 3D 分子シミュレーション</span>
+            <span style="color:#94a3b8; font-size:10px;">ドラッグで回転</span>
+          </div>
+          <canvas id="mol-sim-canvas" width="420" height="290"></canvas>
+          <div class="mol-stage-foot">
+            <span id="mol-meta-txt" class="mol-meta-txt">C₆H₆ · 78.11</span>
+            <div style="display:flex; gap:5px;">
+              <button id="btn-mol-heat" class="mol-sim-btn" onclick="toggleMolHeat()">🔥 加熱 (300K)</button>
+              <button class="mol-sim-btn" onclick="replayMolAssembly()">💥 再合成</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Score, Compound Info & Trivia -->
+        <div class="result-info-col">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+              <span id="res-cat" style="font-size:12px; font-weight:900; color:#0284c7;">4置換・大役</span>
+              <span id="res-new-rec" style="display:none; background:#ef4444; color:#fff; font-size:11px; font-weight:900; padding:2px 8px; border-radius:99px; border:2px solid #111827;">★ NEW RECORD!</span>
+            </div>
+            <h2 id="res-name" style="font-size:30px; font-weight:900; color:#111827; line-height:1.15; padding-right:56px;">ピクリン酸</h2>
+            <div id="res-iupac" style="font-size:12px; font-weight:800; color:#64748b; margin-top:2px;">2,4,6-トリニトロフェノール</div>
+
+            <div class="res-score-box">
+              <div style="font-size:11px; font-weight:900; letter-spacing:0.15em; color:#94a3b8;">SCORE</div>
+              <div style="display:flex; align-items:baseline; justify-content:center; gap:6px; margin-top:2px;">
+                <span id="res-score-val" class="res-score-val">0</span>
+                <span style="font-size:20px; font-weight:900;">pt</span>
+              </div>
+              <div id="res-breakdown" style="font-size:11.5px; font-weight:700; color:#cbd5e1; margin-top:5px;"></div>
+            </div>
+
+            <div id="res-trivia" class="res-trivia"></div>
+          </div>
+
+          <button class="btn-retry-big" onclick="resetGame()">もう一回あそぶ！ [Enter / Space]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RECIPE BOOK MODAL ================= -->
+  <div id="recipe-modal" class="game-modal" onclick="if(event.target===this) closeModals()">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <span style="font-size:16px; font-weight:900;">📖 化合物（役）いちらん — 全32種</span>
+        <button class="game-mini-btn" onclick="closeModals()">とじる (Esc)</button>
+      </div>
+      <div id="recipe-grid" class="modal-grid"></div>
+    </div>
+  </div>
+
+  <!-- ================= RANKING MODAL ================= -->
+  <div id="ranking-modal" class="game-modal" onclick="if(event.target===this) closeModals()">
+    <div class="modal-sheet" style="width:min(460px, 92vw);">
+      <div class="modal-head">
+        <span style="font-size:16px; font-weight:900;">🏆 ハイスコア・ランキング</span>
+        <div style="display:flex; gap:6px;">
+          <button class="game-mini-btn" onclick="clearRanking()">リセット</button>
+          <button class="game-mini-btn" onclick="closeModals()">とじる</button>
+        </div>
+      </div>
+      <div id="ranking-body" style="padding:16px; display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. PARAMETERS & CHEMICAL DATA (Externalized & Tunable — Sakurai #11)
+    // =========================================================================
+    const GROUPS = {
+      H:    { id: 'H',    html: 'H',              name: 'すいそ',         basePt: 0,  weight: 0,  bg: '#f8fafc', fg: '#64748b' },
+      CH3:  { id: 'CH3',  html: 'CH<sub>3</sub>', name: 'メチル',         basePt: 10, weight: 15, bg: '#bbf7d0', fg: '#14532d' },
+      OH:   { id: 'OH',   html: 'OH',             name: 'ヒドロキシ',     basePt: 15, weight: 15, bg: '#bae6fd', fg: '#0c4a6e' },
+      Cl:   { id: 'Cl',   html: 'Cl',             name: 'クロロ',         basePt: 15, weight: 11, bg: '#d9f99d', fg: '#365314' },
+      COOH: { id: 'COOH', html: 'COOH',           name: 'カルボキシ',     basePt: 20, weight: 12, bg: '#fed7aa', fg: '#7c2d12' },
+      NH2:  { id: 'NH2',  html: 'NH<sub>2</sub>', name: 'アミノ',         basePt: 25, weight: 11, bg: '#bfdbfe', fg: '#1e3a8a' },
+      Br:   { id: 'Br',   html: 'Br',             name: 'ブロモ',         basePt: 25, weight: 12, bg: '#fecdd3', fg: '#881337' },
+      NO2:  { id: 'NO2',  html: 'NO<sub>2</sub>', name: 'ニトロ',         basePt: 30, weight: 16, bg: '#fde047', fg: '#713f12' },
+      SO3H: { id: 'SO3H', html: 'SO<sub>3</sub>H',name: 'スルホ',         basePt: 35, weight: 8,  bg: '#fdba74', fg: '#431407' },
+    };
+
+    const DRAWABLE_KEYS = ['CH3', 'OH', 'COOH', 'Cl', 'NH2', 'NO2', 'Br', 'SO3H'];
+
+    function canonicalKey(ring6) {
+      let best = null;
+      const rev = [...ring6].reverse();
+      for (let s = 0; s < 6; s++) {
+        const a = ring6.slice(s).concat(ring6.slice(0, s)).join('|');
+        const b = rev.slice(s).concat(rev.slice(0, s)).join('|');
+        if (best === null || a < best) best = a;
+        if (b < best) best = b;
+      }
+      return best;
+    }
+
+    function pat(map) {
+      const a = ['H', 'H', 'H', 'H', 'H', 'H'];
+      for (const [k, v] of Object.entries(map)) a[Number(k) - 1] = v;
+      return a;
+    }
+
+    const COMPOUNDS = [
+      // 4置換・SS / S
+      { name: 'ピクリン酸', iupac: '2,4,6-トリニトロフェノール', pattern: pat({1:'OH',2:'NO2',4:'NO2',6:'NO2'}), score: 3500, rank: 'SS', cat: '4置換・伝説の大役', trivia: '鮮やかな黄色の結晶で強い酸性を示します。爆薬や染料として高校化学で必ず登場する超有名物質！' },
+      { name: 'TNT', iupac: '2,4,6-トリニトロトルエン', pattern: pat({1:'CH3',2:'NO2',4:'NO2',6:'NO2'}), score: 3100, rank: 'SS', cat: '4置換・伝説の大役', trivia: 'TNT火薬の正体！トルエンにニトロ基を3つ導入して作られ、衝撃に比較的安定なため広く使われました。' },
+      { name: '2,4,6-トリブロモアニリン', iupac: '2,4,6-トリブロモアニリン', pattern: pat({1:'NH2',2:'Br',4:'Br',6:'Br'}), score: 2700, rank: 'S', cat: '4置換・大役', trivia: 'アニリンに臭素水を加えると瞬時にできる白色沈殿。アミノ基の強いオルト・パラ配向性が働きます。' },
+      { name: '2,4,6-トリブロモフェノール', iupac: '2,4,6-トリブロモフェノール', pattern: pat({1:'OH',2:'Br',4:'Br',6:'Br'}), score: 2600, rank: 'S', cat: '4置換・大役', trivia: 'フェノールの検出反応でおなじみの白色沈殿！臭素水を入れるだけで一気に3つの臭素が2,4,6位に入ります。' },
+      // 3置換・S
+      { name: '1,3,5-トリニトロベンゼン', iupac: '1,3,5-トリニトロベンゼン', pattern: pat({1:'NO2',3:'NO2',5:'NO2'}), score: 1850, rank: 'S', cat: '3置換・高難度役', trivia: 'メタ配向性で1,3,5位に並びます。実は現実の合成ではTNTより作るのがずっと難しい高難度化合物！' },
+      { name: 'ピロガロール', iupac: 'ベンゼン-1,2,3-トリオール', pattern: pat({1:'OH',2:'OH',3:'OH'}), score: 1700, rank: 'S', cat: '3置換・レア役', trivia: 'アルカリ水溶液中で酸素をぐんぐん吸収するため、気体分析の酸素吸収剤や写真の現像液に使われます。' },
+      { name: 'メシチレン', iupac: '1,3,5-トリメチルベンゼン', pattern: pat({1:'CH3',3:'CH3',5:'CH3'}), score: 1600, rank: 'S', cat: '3置換・対称役', trivia: '美しい3回対称性をもつ芳香族炭化水素。アセトン3分子の脱水縮合で作ることができます。' },
+      // 2置換・A
+      { name: 'スルファニル酸', iupac: '4-アミノベンゼンスルホン酸', pattern: pat({1:'NH2',4:'SO3H'}), score: 1300, rank: 'A', cat: '2置換・有名役', trivia: 'アミノ基とスルホ基を併せ持つ「両性イオン」の代表格。抗菌薬（サルファ剤）の出発物質です。' },
+      { name: 'サリチル酸', iupac: '2-ヒドロキシ安息香酸', pattern: pat({1:'COOH',2:'OH'}), score: 1200, rank: 'A', cat: '2置換・超有名役', trivia: '解熱鎮痛薬「アスピリン」や湿布薬の原料！ヤナギの樹皮から発見されたことでも有名です。' },
+      { name: 'p-アミノ安息香酸', iupac: '4-アミノ安息香酸 (PABA)', pattern: pat({1:'COOH',4:'NH2'}), score: 1100, rank: 'A', cat: '2置換・有名役', trivia: 'ビタミンB群の葉酸の構成成分。紫外線を吸収する性質から日焼け止めにも使われました。' },
+      { name: 'テレフタル酸', iupac: 'ベンゼン-1,4-ジカルボン酸', pattern: pat({1:'COOH',4:'COOH'}), score: 1050, rank: 'A', cat: '2置換・超有名役', trivia: 'ペットボトル（PET＝ポリエチレンテレフタレート）の原料！p-キシレンを酸化して大量生産されます。' },
+      { name: 'フタル酸', iupac: 'ベンゼン-1,2-ジカルボン酸', pattern: pat({1:'COOH',2:'COOH'}), score: 980, rank: 'A', cat: '2置換・有名役', trivia: '隣り合うCOOH基（オルト位）を加熱すると簡単に水が抜けて「無水フタル酸」になります。' },
+      { name: 'イソフタル酸', iupac: 'ベンゼン-1,3-ジカルボン酸', pattern: pat({1:'COOH',3:'COOH'}), score: 950, rank: 'A', cat: '2置換・有名役', trivia: 'フタル酸のメタ異性体。耐熱性樹脂や丈夫な繊維の原料として工業的に大活躍します。' },
+      { name: 'ヒドロキノン', iupac: 'ベンゼン-1,4-ジオール', pattern: pat({1:'OH',4:'OH'}), score: 950, rank: 'A', cat: '2置換・有名役', trivia: '強い還元作用をもち、写真の現像液や美容の美白クリームにも使われる身近な化合物です。' },
+      { name: 'p-ニトロフェノール', iupac: '4-ニトロフェノール', pattern: pat({1:'OH',4:'NO2'}), score: 920, rank: 'A', cat: '2置換・有名役', trivia: 'pH指示薬としても使われ、塩基性になると鮮やかな黄色に変わります。' },
+      { name: 'o-ニトロフェノール', iupac: '2-ニトロフェノール', pattern: pat({1:'OH',2:'NO2'}), score: 900, rank: 'A', cat: '2置換・有名役', trivia: '分子内で水素結合をつくるため融点が低く、水蒸気蒸留で簡単に分離できます。' },
+      { name: 'カテコール', iupac: 'ベンゼン-1,2-ジオール', pattern: pat({1:'OH',2:'OH'}), score: 900, rank: 'A', cat: '2置換・有名役', trivia: 'リンゴが茶色くなる反応など、植物のポリフェノール構造の基本ユニットです。' },
+      { name: 'レゾルシノール', iupac: 'ベンゼン-1,3-ジオール', pattern: pat({1:'OH',3:'OH'}), score: 900, rank: 'A', cat: '2置換・有名役', trivia: 'タイヤのゴム接着剤やニキビ治療薬にも利用されるメタ置換ジヒドロキシベンゼンです。' },
+      { name: 'p-ジクロロベンゼン', iupac: '1,4-ジクロロベンゼン', pattern: pat({1:'Cl',4:'Cl'}), score: 880, rank: 'A', cat: '2置換・身近な役', trivia: 'タンスの防虫剤やトイレの芳香剤の主成分！固体から直接気体になる「昇華性」で有名です。' },
+      { name: 'p-トルイジン', iupac: '4-メチルアニリン', pattern: pat({1:'NH2',4:'CH3'}), score: 820, rank: 'A', cat: '2置換・定番役', trivia: 'アニリンにメチル基がついた芳香族アミン。アゾ染料などの合成原料になります。' },
+      { name: 'p-クレゾール', iupac: '4-メチルフェノール', pattern: pat({1:'OH',4:'CH3'}), score: 800, rank: 'A', cat: '2置換・定番役', trivia: 'クレゾール石けん液（消毒剤）の成分。独特の病院っぽいにおいがするフェノール類です。' },
+      { name: 'o-クレゾール', iupac: '2-メチルフェノール', pattern: pat({1:'OH',2:'CH3'}), score: 780, rank: 'A', cat: '2置換・定番役', trivia: 'クレゾールのオルト異性体。消毒液や合成樹脂の中間体として使われます。' },
+      { name: 'm-クレゾール', iupac: '3-メチルフェノール', pattern: pat({1:'OH',3:'CH3'}), score: 780, rank: 'A', cat: '2置換・定番役', trivia: 'クレゾールのメタ異性体。ビタミンE合成の原料にも使われます。' },
+      { name: 'p-キシレン', iupac: '1,4-ジメチルベンゼン', pattern: pat({1:'CH3',4:'CH3'}), score: 760, rank: 'A', cat: '2置換・定番役', trivia: 'ペットボトルの原料「テレフタル酸」の前駆体！工業的価値がとても高い異性体です。' },
+      { name: 'o-キシレン', iupac: '1,2-ジメチルベンゼン', pattern: pat({1:'CH3',2:'CH3'}), score: 720, rank: 'A', cat: '2置換・定番役', trivia: '酸化すると無水フタル酸になるオルト異性体。有機溶媒として広く使われます。' },
+      { name: 'm-キシレン', iupac: '1,3-ジメチルベンゼン', pattern: pat({1:'CH3',3:'CH3'}), score: 720, rank: 'A', cat: '2置換・定番役', trivia: '酸化するとイソフタル酸になるメタ異性体。塗料の溶剤などに使われます。' },
+      // 1置換・B (300pt以上 > 役なし最大210pt)
+      { name: 'ベンゼンスルホン酸', iupac: 'ベンゼンスルホン酸', pattern: pat({1:'SO3H'}), score: 450, rank: 'B', cat: '1置換・基本役', trivia: '濃硫酸を加えて加熱（スルホン化）して生成。アルカリ融解でフェノールに変身します。' },
+      { name: 'ニトロベンゼン', iupac: 'ニトロベンゼン', pattern: pat({1:'NO2'}), score: 420, rank: 'B', cat: '1置換・基本役', trivia: '混酸でニトロ化して作る淡黄色の油状液体。アーモンド（杏仁）に似た甘い香りがあります。' },
+      { name: 'アニリン', iupac: 'アミノベンゼン', pattern: pat({1:'NH2'}), score: 400, rank: 'B', cat: '1置換・基本役', trivia: 'ニトロベンゼンを還元して作る弱塩基性液体。さらし粉水溶液で赤紫色に呈色します！' },
+      { name: '安息香酸', iupac: '安息香酸', pattern: pat({1:'COOH'}), score: 380, rank: 'B', cat: '1置換・基本役', trivia: 'トルエンを酸化して得る白色結晶。ナトリウム塩は清涼飲料水などの保存料として身近です。' },
+      { name: 'ブロモベンゼン', iupac: 'ブロモベンゼン', pattern: pat({1:'Br'}), score: 360, rank: 'B', cat: '1置換・基本役', trivia: '鉄粉を触媒にしてベンゼンと臭素を反応させて作る、有機合成の便利な出発原料です。' },
+      { name: 'フェノール', iupac: 'ヒドロキシベンゼン', pattern: pat({1:'OH'}), score: 350, rank: 'B', cat: '1置換・基本役', trivia: '塩化鉄(III)水溶液で青紫色に呈色！プラスチックや医薬品の母体となる超重要物質です。' },
+      { name: 'クロロベンゼン', iupac: 'クロロベンゼン', pattern: pat({1:'Cl'}), score: 320, rank: 'B', cat: '1置換・基本役', trivia: 'ベンゼンと塩素の置換反応で作られる無色液体。高温高圧のNaOHでフェノールになります。' },
+      { name: 'トルエン', iupac: 'メチルベンゼン', pattern: pat({1:'CH3'}), score: 300, rank: 'B', cat: '1置換・基本役', trivia: '最も基本的な芳香族炭化水素のひとつ。安息香酸やTNTの出発原料になります。' },
+    ];
+
+    const COMPOUND_MAP = new Map();
+    COMPOUNDS.forEach(c => {
+      c.canonical = canonicalKey(c.pattern);
+      COMPOUND_MAP.set(c.canonical, c);
+    });
+
+    function lookupCompound(ring6) {
+      return COMPOUND_MAP.get(canonicalKey(ring6)) || null;
+    }
+
+    function calcFallbackScore(ring6) {
+      let sum = 0;
+      const parts = [];
+      ring6.forEach(g => {
+        if (g !== 'H') {
+          sum += GROUPS[g].basePt;
+          parts.push(`${g}(+${GROUPS[g].basePt})`);
+        }
+      });
+      return { sum, parts };
+    }
+
+    function findReaches(ring6, curComp) {
+      const curScore = curComp ? curComp.score : 0;
+      const found = new Map();
+      for (let i = 0; i < 6; i++) {
+        const orig = ring6[i];
+        for (const g of ['H', ...DRAWABLE_KEYS]) {
+          if (g === orig) continue;
+          const next = [...ring6];
+          next[i] = g;
+          const comp = lookupCompound(next);
+          if (comp && comp.score > curScore && !found.has(comp.canonical)) {
+            found.set(comp.canonical, { compound: comp, posIndex: i, needGroup: g });
+          }
+        }
+      }
+      return Array.from(found.values()).sort((a, b) => b.compound.score - a.compound.score);
+    }
+
+    // =========================================================================
+    // 2. SOUND ENGINE (Strong Attack, Crisp Decay — Sakurai #10 Sound)
+    // =========================================================================
+    let audioCtx = null;
+    let soundOn = true;
+
+    function getAudio() {
+      if (!soundOn) return null;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function tone(freq, type, dur, vol = 0.16, delay = 0, endFreq = null) {
+      const ctx = getAudio();
+      if (!ctx) return;
+      const t = ctx.currentTime + delay;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.008); // Fast punchy attack!
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+
+    function noiseHit(dur = 0.14, vol = 0.32, delay = 0, freq = 1400) {
+      const ctx = getAudio();
+      if (!ctx) return;
+      const t = ctx.currentTime + delay;
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 2.2);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const flt = ctx.createBiquadFilter();
+      flt.type = 'bandpass';
+      flt.frequency.setValueAtTime(freq, t);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(flt);
+      flt.connect(g);
+      g.connect(ctx.destination);
+      src.start(t);
+    }
+
+    const SFX = {
+      cursor() { tone(660, 'square', 0.035, 0.06, 0, 820); },
+      place(combo) {
+        // Punchy Mahjong/Donjara tile clack + rising chime
+        noiseHit(0.06, 0.24, 0, 2200);
+        const f = 380 * Math.pow(1.07, Math.min(combo, 6));
+        tone(f, 'triangle', 0.11, 0.18, 0, f * 1.25);
+        tone(f * 1.5, 'sine', 0.14, 0.12, 0.03);
+      },
+      pass() { tone(280, 'triangle', 0.09, 0.1, 0, 190); },
+      remove() { tone(480, 'sawtooth', 0.11, 0.09, 0, 200); },
+      yakuReady() {
+        tone(587.33, 'square', 0.09, 0.1, 0.04);
+        tone(880, 'triangle', 0.2, 0.18, 0.11);
+        tone(1174.66, 'triangle', 0.25, 0.16, 0.18);
+      },
+      benImpact() {
+        // Heavy tile slam + sub punch + metallic ring
+        noiseHit(0.22, 0.42, 0, 950);
+        tone(140, 'sawtooth', 0.38, 0.32, 0, 38);
+        tone(280, 'square', 0.16, 0.16, 0.02, 110);
+        tone(987.77, 'triangle', 0.36, 0.14, 0.04, 1480);
+      },
+      fanfare(rank) {
+        if (rank === 'SS' || rank === 'S') {
+          [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98].forEach((n, i) => tone(n, 'triangle', 0.32, 0.16, i * 0.065));
+          tone(1046.5, 'sawtooth', 0.55, 0.09, 0.38);
+        } else if (rank === 'A') {
+          [440, 554.37, 659.25, 880].forEach((n, i) => tone(n, 'triangle', 0.26, 0.15, i * 0.07));
+        } else if (rank === 'B') {
+          [392, 493.88, 587.33].forEach((n, i) => tone(n, 'triangle', 0.22, 0.14, i * 0.08));
+        } else {
+          tone(330, 'triangle', 0.15, 0.11, 0);
+          tone(277, 'triangle', 0.24, 0.11, 0.12);
+        }
+      },
+      tick() { tone(920 + Math.random() * 240, 'square', 0.022, 0.045); },
+      stamp() { noiseHit(0.08, 0.28, 0, 1200); tone(180, 'triangle', 0.14, 0.22, 0, 75); },
+      done() { tone(1046.5, 'triangle', 0.34, 0.18, 0); tone(1567.98, 'sine', 0.36, 0.14, 0.04); }
+    };
+
+    function toggleSound() {
+      soundOn = !soundOn;
+      const b = document.getElementById('btn-sound');
+      b.textContent = soundOn ? '🔊 音' : '🔇 消音';
+      b.classList.toggle('is-on', soundOn);
+      if (soundOn) SFX.cursor();
+    }
+
+    // =========================================================================
+    // 3. CRISP POLYGON FX ENGINE (Sakurai #016, #056, #130: No blurry glow-only!)
+    //    Draws sharp black-outlined stars, impact spikes, smoke puffs, confetti
+    // =========================================================================
+    const fxCanvas = document.getElementById('fx-canvas');
+    const ctx = fxCanvas.getContext('2d');
+    let fxItems = [];
+
+    function resizeFx() {
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeFx);
+    resizeFx();
+
+    function spawnHitMark(x, y, accentColor = '#facc15', big = false) {
+      // Expanding crisp shockwave ring (black outline + bright stroke)
+      fxItems.push({
+        kind: 'ring', x, y,
+        r: big ? 28 : 14,
+        maxR: big ? 240 : 72,
+        color: accentColor,
+        life: 1, decay: big ? 0.045 : 0.085
+      });
+
+      // Spiky comic stars & sparks with crisp dark borders (visible on bright AND dark!)
+      const n = big ? 26 : 11;
+      for (let i = 0; i < n; i++) {
+        const ang = (Math.PI * 2 * i) / n + (Math.random() - 0.5) * 0.35;
+        const spd = (big ? 13 : 6.5) * (0.5 + Math.random() * 0.8);
+        fxItems.push({
+          kind: i % 3 === 0 ? 'star' : 'shard',
+          x, y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          size: big ? (12 + Math.random() * 14) : (6 + Math.random() * 7),
+          color: i % 2 === 0 ? accentColor : '#ffffff',
+          rot: ang,
+          vrot: (Math.random() - 0.5) * 0.25,
+          life: 1,
+          decay: big ? 0.025 : 0.055
+        });
+      }
+
+      // Dark smoke puffs for Sakurai #056 contrast (Flash -> Flame -> Dark Smoke)
+      if (big) {
+        for (let i = 0; i < 12; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 3 + Math.random() * 6;
+          fxItems.push({
+            kind: 'smoke',
+            x: x + Math.cos(ang) * 20,
+            y: y + Math.sin(ang) * 20,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 1.5,
+            size: 18 + Math.random() * 22,
+            life: 1,
+            decay: 0.022
+          });
+        }
+      }
+    }
+
+    function spawnConfettiBurst(x, y, count = 65) {
+      const cols = ['#facc15', '#ef4444', '#38bdf8', '#22c55e', '#f97316', '#ffffff'];
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 5 + Math.random() * 11;
+        fxItems.push({
+          kind: 'confetti',
+          x, y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 4,
+          size: 8 + Math.random() * 7,
+          color: cols[i % cols.length],
+          rot: Math.random() * Math.PI * 2,
+          vrot: (Math.random() - 0.5) * 0.3,
+          life: 1,
+          decay: 0.011 + Math.random() * 0.008
+        });
+      }
+    }
+
+    function drawStar(c, x, y, r) {
+      c.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const rad = i % 2 === 0 ? r : r * 0.42;
+        const a = (i * Math.PI) / 4;
+        if (i === 0) c.moveTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+        else c.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+      }
+      c.closePath();
+    }
+
+    function fxLoop() {
+      ctx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      for (let i = fxItems.length - 1; i >= 0; i--) {
+        const p = fxItems[i];
+        p.life -= p.decay;
+        if (p.life <= 0) { fxItems.splice(i, 1); continue; }
+
+        ctx.save();
+        if (p.kind === 'ring') {
+          const curR = p.r + (p.maxR - p.r) * (1 - p.life);
+          ctx.globalAlpha = p.life;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, curR, 0, Math.PI * 2);
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 10 * p.life + 3;
+          ctx.stroke();
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 6 * p.life + 1;
+          ctx.stroke();
+        } else if (p.kind === 'smoke') {
+          p.x += p.vx; p.y += p.vy; p.vx *= 0.94; p.vy *= 0.94;
+          ctx.globalAlpha = p.life * 0.45;
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (1.3 - p.life * 0.3), 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.kind === 'star') {
+          p.x += p.vx; p.y += p.vy; p.vx *= 0.92; p.vy *= 0.92; p.rot += p.vrot;
+          ctx.globalAlpha = Math.min(1, p.life * 1.4);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          drawStar(ctx, 0, 0, p.size * p.life);
+          ctx.fillStyle = p.color;
+          ctx.fill();
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        } else if (p.kind === 'shard') {
+          p.x += p.vx; p.y += p.vy; p.vx *= 0.91; p.vy *= 0.91;
+          ctx.globalAlpha = Math.min(1, p.life * 1.3);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(p.size * 1.4, 0);
+          ctx.lineTo(-p.size * 0.6, p.size * 0.45);
+          ctx.lineTo(-p.size * 0.6, -p.size * 0.45);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (p.kind === 'confetti') {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.24; p.vx *= 0.985; p.rot += p.vrot;
+          ctx.globalAlpha = Math.min(1, p.life * 1.5);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 1.8;
+          ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+          ctx.strokeRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+        }
+        ctx.restore();
+      }
+      requestAnimationFrame(fxLoop);
+    }
+    fxLoop();
+
+    // Black & White 2-frame impact flash (Sakurai #221: works on bright backgrounds!)
+    function impactFlash(strong = false) {
+      const fl = document.getElementById('flash-layer');
+      if (strong) {
+        fl.style.background = '#111827';
+        fl.style.opacity = '0.75';
+        setTimeout(() => {
+          fl.style.background = '#ffffff';
+          fl.style.opacity = '0.88';
+          setTimeout(() => { fl.style.opacity = '0'; }, 85);
+        }, 45);
+      } else {
+        fl.style.background = '#ffffff';
+        fl.style.opacity = '0.35';
+        setTimeout(() => { fl.style.opacity = '0'; }, 60);
+      }
+    }
+
+    function triggerShake(big = false) {
+      const vp = document.getElementById('game-viewport');
+      vp.classList.remove('shake-small', 'shake-big');
+      void vp.offsetWidth;
+      vp.classList.add(big ? 'shake-big' : 'shake-small');
+    }
+
+    // =========================================================================
+    // 4. GAME STATE & CORE LOOP
+    // =========================================================================
+    const state = {
+      ring: ['H', 'H', 'H', 'H', 'H', 'H'],
+      selectedVertex: 0,
+      maxTurns: 6,
+      turnsLeft: 6,
+      drawMode: 'single', // 'single' | 'draft'
+      drawnOptions: [],
+      selectedDraftIdx: 0,
+      gameOver: false,
+      inCutin: false,
+      lastMatchedKey: null,
+      placedCount: 0,
+      cutinTimer: null,
+    };
+
+    const VERTEX_COORDS = [0, 1, 2, 3, 4, 5].map(i => {
+      const rad = ((i * 60) - 90) * (Math.PI / 180);
+      return {
+        pctX: 50 + Math.cos(rad) * 39.5,
+        pctY: 50 + Math.sin(rad) * 39.5,
+        x1: 200 + Math.cos(rad) * 102,
+        y1: 200 + Math.sin(rad) * 102,
+        x2: 200 + Math.cos(rad) * 150,
+        y2: 200 + Math.sin(rad) * 150,
+      };
+    });
+
+    function drawWeighted(exclude = []) {
+      const pool = DRAWABLE_KEYS.filter(k => !exclude.includes(k));
+      const tot = pool.reduce((a, k) => a + GROUPS[k].weight, 0);
+      let r = Math.random() * tot;
+      for (const k of pool) {
+        r -= GROUPS[k].weight;
+        if (r <= 0) return k;
+      }
+      return pool[0];
+    }
+
+    function dealDraw() {
+      if (state.drawMode === 'draft') {
+        const opts = [];
+        for (let i = 0; i < 3; i++) opts.push(drawWeighted(opts));
+        state.drawnOptions = opts;
+      } else {
+        state.drawnOptions = [drawWeighted()];
+      }
+      state.selectedDraftIdx = 0;
+    }
+
+    function cycleDrawMode() {
+      state.drawMode = state.drawMode === 'single' ? 'draft' : 'single';
+      SFX.cursor();
+      resetGame();
+    }
+
+    function cycleMaxTurns() {
+      const seq = [6, 8, 10];
+      state.maxTurns = seq[(seq.indexOf(state.maxTurns) + 1) % seq.length];
+      SFX.cursor();
+      resetGame();
+    }
+
+    function resetGame() {
+      if (state.cutinTimer) { clearTimeout(state.cutinTimer); state.cutinTimer = null; }
+      state.ring = ['H', 'H', 'H', 'H', 'H', 'H'];
+      state.selectedVertex = 0;
+      state.turnsLeft = state.maxTurns;
+      state.gameOver = false;
+      state.inCutin = false;
+      state.lastMatchedKey = null;
+      state.placedCount = 0;
+      dealDraw();
+      document.getElementById('ben-overlay').classList.remove('show');
+      stopMolSim();
+      renderAll();
+    }
+
+    function consumeTurn() {
+      state.turnsLeft -= 1;
+      const comp = lookupCompound(state.ring);
+      if (comp && comp.canonical !== state.lastMatchedKey) {
+        state.lastMatchedKey = comp.canonical;
+        SFX.yakuReady();
+      } else if (!comp) {
+        state.lastMatchedKey = null;
+      }
+
+      if (state.turnsLeft <= 0) {
+        renderAll();
+        setTimeout(() => triggerBen(true), 240);
+      } else {
+        dealDraw();
+        renderAll();
+      }
+    }
+
+    function actionPlace() {
+      if (state.gameOver) return;
+      const gKey = state.drawnOptions[state.selectedDraftIdx];
+      if (!gKey) return;
+
+      const idx = state.selectedVertex;
+      state.ring[idx] = gKey;
+      state.placedCount += 1;
+      SFX.place(state.placedCount);
+      triggerShake(false);
+
+      // Brief Hit-stop feeling + crisp Hit Mark at vertex!
+      renderRing();
+      const el = document.getElementById(`vslot-${idx}`);
+      if (el) {
+        el.classList.add('slam-in');
+        const rect = el.getBoundingClientRect();
+        spawnHitMark(rect.left + rect.width / 2, rect.top + rect.height / 2, GROUPS[gKey].bg, false);
+      }
+
+      setTimeout(() => consumeTurn(), 55);
+    }
+
+    function actionPass() {
+      if (state.gameOver) return;
+      SFX.pass();
+      consumeTurn();
+    }
+
+    function actionRemoveToH() {
+      if (state.gameOver || state.ring[state.selectedVertex] === 'H') return;
+      state.ring[state.selectedVertex] = 'H';
+      SFX.remove();
+      consumeTurn();
+    }
+
+    function selectVertex(i) {
+      if (state.gameOver) return;
+      state.selectedVertex = (i + 6) % 6;
+      SFX.cursor();
+      renderRing();
+      renderBottomControls();
+    }
+
+    function selectDraft(i) {
+      if (state.gameOver || state.drawMode !== 'draft') return;
+      state.selectedDraftIdx = (i + state.drawnOptions.length) % state.drawnOptions.length;
+      SFX.cursor();
+      renderDrawnTiles();
+    }
+
+    // =========================================================================
+    // 5. "BEN!!" FINISHER SEQUENCE (Flash -> Flip -> Slam -> Explosion -> Result)
+    // =========================================================================
+    let currentBenComp = null;
+
+    function triggerBen(isAutoEnd = false) {
+      if (state.gameOver) return;
+      const comp = lookupCompound(state.ring);
+      if (!isAutoEnd && !comp) return;
+
+      state.gameOver = true;
+      state.inCutin = true;
+      currentBenComp = comp;
+
+      // Flip-down animation on all 6 vertex tiles (like revealing Mahjong/Donjara tiles!)
+      document.querySelectorAll('.vertex-slot').forEach((el, idx) => {
+        setTimeout(() => el.classList.add('ben-flip'), idx * 28);
+      });
+
+      const overlay = document.getElementById('ben-overlay');
+      const sunburst = document.getElementById('sunburst');
+      const cutinBox = document.getElementById('cutin-box');
+      const resPanel = document.getElementById('result-panel');
+      const cutinWord = document.getElementById('cutin-word');
+      const cutinRibbon = document.getElementById('cutin-ribbon');
+
+      if (comp) {
+        impactFlash(true);
+        triggerShake(true);
+        SFX.benImpact();
+        spawnHitMark(window.innerWidth / 2, window.innerHeight / 2, '#facc15', true);
+        if (comp.rank === 'SS' || comp.rank === 'S') {
+          spawnConfettiBurst(window.innerWidth / 2, window.innerHeight / 2, 90);
+        } else {
+          spawnConfettiBurst(window.innerWidth / 2, window.innerHeight / 2, 42);
+        }
+        cutinWord.textContent = 'ベン！！';
+        cutinWord.style.color = '#facc15';
+        cutinRibbon.textContent = comp.rank === 'SS' ? 'LEGENDARY SYNTHESIS!!' : 'SYNTHESIS COMPLETE!';
+        sunburst.style.display = 'block';
+      } else {
+        impactFlash(false);
+        SFX.pass();
+        cutinWord.textContent = 'タイムアップ';
+        cutinWord.style.color = '#e2e8f0';
+        cutinRibbon.textContent = 'TURN OVER';
+        sunburst.style.display = 'none';
+      }
+
+      overlay.classList.add('show');
+      resPanel.style.display = 'none';
+      cutinBox.style.display = 'flex';
+
+      state.cutinTimer = setTimeout(() => {
+        revealResultPanel(comp);
+      }, comp ? 760 : 540);
+    }
+
+    function revealResultPanel(comp) {
+      if (!state.inCutin) return;
+      state.inCutin = false;
+      if (state.cutinTimer) { clearTimeout(state.cutinTimer); state.cutinTimer = null; }
+
+      document.getElementById('cutin-box').style.display = 'none';
+      const panel = document.getElementById('result-panel');
+      const stamp = document.getElementById('res-rank-stamp');
+      const rankLetter = document.getElementById('res-rank-letter');
+      const catEl = document.getElementById('res-cat');
+      const nameEl = document.getElementById('res-name');
+      const iupacEl = document.getElementById('res-iupac');
+      const scoreEl = document.getElementById('res-score-val');
+      const breakdownEl = document.getElementById('res-breakdown');
+      const triviaEl = document.getElementById('res-trivia');
+      const newRecEl = document.getElementById('res-new-rec');
+
+      let finalScore = 0;
+      let rank = 'NONE';
+      let recName = '';
+
+      if (comp) {
+        finalScore = comp.score;
+        rank = comp.rank;
+        recName = comp.name;
+        catEl.textContent = comp.cat;
+        nameEl.textContent = comp.name;
+        iupacEl.textContent = comp.iupac;
+        breakdownEl.textContent = `役成立ボーナス：${comp.score.toLocaleString()} pt（のこり${state.turnsLeft}ターンでベン！）`;
+        triviaEl.textContent = `🧪 ${comp.trivia}`;
+        rankLetter.textContent = rank;
+
+        const stampBg = { SS: '#ef4444', S: '#f59e0b', A: '#38bdf8', B: '#22c55e' }[rank] || '#94a3b8';
+        stamp.style.background = stampBg;
+        stamp.style.color = rank === 'SS' ? '#ffffff' : '#111827';
+      } else {
+        const fb = calcFallbackScore(state.ring);
+        finalScore = fb.sum;
+        recName = fb.parts.length === 0 ? 'ベンゼン' : '未登録化合物';
+        catEl.textContent = '役なし（官能基の珍しさ合算）';
+        nameEl.textContent = fb.parts.length === 0 ? 'ただのベンゼン' : '未知の芳香族化合物';
+        iupacEl.textContent = fb.parts.length === 0 ? '置換基なし' : `構成：${state.ring.filter(g => g !== 'H').join(' + ')}`;
+        breakdownEl.textContent = fb.parts.length ? `珍しさ合算：${fb.parts.join(' + ')}` : 'まずは1つ置換基をおいてみよう！';
+        triviaEl.textContent = '🧪 役にならなくても、配置した官能基の珍しさでスコアが入ります。次は画面右の「あと1手！」ガイドを頼りに有名化合物を狙ってみよう！';
+        rankLetter.textContent = '-';
+        stamp.style.background = '#cbd5e1';
+        stamp.style.color = '#334155';
+      }
+
+      const isNew = saveScore(recName, finalScore, rank);
+      newRecEl.style.display = (isNew && finalScore > 0) ? 'inline-block' : 'none';
+
+      panel.style.display = 'block';
+      startMolSim(state.ring);
+      SFX.fanfare(rank);
+      setTimeout(() => SFX.stamp(), 200);
+
+      if (rank === 'SS' || rank === 'S') {
+        setTimeout(() => {
+          spawnConfettiBurst(window.innerWidth * 0.22, window.innerHeight * 0.3, 45);
+          spawnConfettiBurst(window.innerWidth * 0.78, window.innerHeight * 0.3, 45);
+        }, 220);
+      }
+
+      // Fast arcade score count-up
+      const start = performance.now();
+      const dur = 520;
+      let lastTick = 0;
+      function animScore(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const val = Math.round(finalScore * (1 - Math.pow(1 - t, 3)));
+        scoreEl.textContent = val.toLocaleString();
+        if (t < 1) {
+          if (now - lastTick > 48 && finalScore > 0) { SFX.tick(); lastTick = now; }
+          requestAnimationFrame(animScore);
+        } else {
+          scoreEl.textContent = finalScore.toLocaleString();
+          if (finalScore > 0) SFX.done();
+        }
+      }
+      requestAnimationFrame(animScore);
+    }
+
+    // =========================================================================
+    // 6. RANKING STORAGE
+    // =========================================================================
+    const RANK_KEY = 'benzene_arcade_rank_v2';
+    function loadRanking() {
+      try { return JSON.parse(localStorage.getItem(RANK_KEY) || '[]'); } catch { return []; }
+    }
+    function saveScore(name, score, rank) {
+      if (score <= 0) return false;
+      const list = loadRanking();
+      const best = list.length ? list[0].score : 0;
+      list.push({ name, score, rank });
+      list.sort((a, b) => b.score - a.score);
+      try { localStorage.setItem(RANK_KEY, JSON.stringify(list.slice(0, 8))); } catch {}
+      return score > best;
+    }
+    function clearRanking() {
+      try { localStorage.removeItem(RANK_KEY); } catch {}
+      renderRankingModal();
+    }
+
+    // =========================================================================
+    // 7. RENDERING
+    // =========================================================================
+    function renderTopHud() {
+      document.getElementById('btn-mode').textContent = state.drawMode === 'single' ? '🎲 1枚' : '🃏 3択';
+      document.getElementById('btn-turns').textContent = `⏱ ${state.maxTurns}T`;
+
+      document.getElementById('turn-num').textContent = state.turnsLeft;
+      const pips = document.getElementById('turn-pips');
+      pips.innerHTML = '';
+      for (let i = 0; i < state.maxTurns; i++) {
+        const d = document.createElement('div');
+        const active = i < state.turnsLeft;
+        d.className = `turn-pip ${active ? (state.turnsLeft <= 2 ? 'danger' : 'active') : ''}`;
+        pips.appendChild(d);
+      }
+
+      const comp = lookupCompound(state.ring);
+      const banner = document.getElementById('yaku-banner');
+      const rankTag = document.getElementById('yaku-rank-tag');
+      const nameTxt = document.getElementById('yaku-name-txt');
+      const ptTxt = document.getElementById('yaku-pt-txt');
+
+      if (comp) {
+        banner.classList.add('yaku-active');
+        rankTag.textContent = `RANK ${comp.rank}`;
+        nameTxt.textContent = comp.name;
+        ptTxt.textContent = `${comp.score.toLocaleString()} pt`;
+      } else {
+        banner.classList.remove('yaku-active');
+        const fb = calcFallbackScore(state.ring);
+        nameTxt.textContent = fb.parts.length === 0 ? 'ベンゼン' : '合成ちゅう…（役なし）';
+        ptTxt.textContent = `${fb.sum} pt`;
+      }
+    }
+
+    function renderRing() {
+      const sticksG = document.getElementById('svg-sticks');
+      if (sticksG.children.length === 0) {
+        VERTEX_COORDS.forEach(c => {
+          const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          ln.setAttribute('x1', c.x1); ln.setAttribute('y1', c.y1);
+          ln.setAttribute('x2', c.x2); ln.setAttribute('y2', c.y2);
+          sticksG.appendChild(ln);
+        });
+      }
+
+      const comp = lookupCompound(state.ring);
+      const reaches = findReaches(state.ring, comp);
+      const handReachTargets = new Set(
+        reaches.filter(r => state.drawnOptions.includes(r.needGroup)).map(r => r.posIndex)
+      );
+
+      // Highlight ring body when Yaku is formed
+      const hex = document.getElementById('svg-hex');
+      const inner = document.getElementById('svg-ring');
+      hex.setAttribute('fill', comp ? '#fef9c3' : '#ffffff');
+      inner.setAttribute('stroke', comp ? '#f59e0b' : '#0284c7');
+
+      const layer = document.getElementById('vertex-layer');
+      layer.innerHTML = '';
+
+      VERTEX_COORDS.forEach((c, i) => {
+        const gKey = state.ring[i];
+        const g = GROUPS[gKey];
+        const isSel = i === state.selectedVertex;
+        const isReach = handReachTargets.has(i) && !isSel;
+
+        const slot = document.createElement('button');
+        slot.id = `vslot-${i}`;
+        slot.style.left = `${c.pctX}%`;
+        slot.style.top = `${c.pctY}%`;
+        slot.style.background = g.bg;
+        slot.style.color = g.fg;
+        slot.className = `vertex-slot ${gKey === 'H' ? 'is-h' : ''} ${isSel ? 'selected' : ''} ${isReach ? 'reach-hint' : ''}`;
+        slot.innerHTML = `
+          <span class="vertex-pos-badge">${i + 1}</span>
+          <span class="vertex-formula">${g.html}</span>
+          <span class="vertex-subname">${g.name}</span>
+        `;
+        slot.onclick = () => selectVertex(i);
+        slot.ondblclick = () => { selectVertex(i); actionPlace(); };
+        layer.appendChild(slot);
+      });
+
+      // Situational Reach Callout (only shown when 1-move away from a higher Yaku!)
+      const callout = document.getElementById('reach-callout');
+      const cardsBox = document.getElementById('reach-cards');
+      const hasAnySubstituent = state.ring.some(g => g !== 'H');
+      if (hasAnySubstituent && reaches.length > 0 && !state.gameOver) {
+        callout.classList.add('visible');
+        cardsBox.innerHTML = '';
+        reaches.slice(0, 3).forEach(r => {
+          const g = GROUPS[r.needGroup];
+          const inHand = state.drawnOptions.includes(r.needGroup);
+          const card = document.createElement('div');
+          card.className = `reach-card ${inHand ? 'in-hand' : ''}`;
+          card.onclick = () => selectVertex(r.posIndex);
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+              <span style="font-size:13px; font-weight:900; color:#111827;">${r.compound.name}</span>
+              <span style="font-size:13px; font-weight:900; color:#dc2626;">${r.compound.score}pt</span>
+            </div>
+            <div style="font-size:11px; font-weight:800; color:#334155; margin-top:3px;">
+              <strong style="color:#0284c7;">${r.posIndex + 1}位</strong> →
+              <span style="background:${g.bg}; color:${g.fg}; border:1.5px solid #111827; padding:0 5px; border-radius:4px;">${g.html}</span>
+              ${inHand ? '<span style="color:#dc2626; margin-left:4px;">★今ひいてる!</span>' : ''}
+            </div>
+          `;
+          cardsBox.appendChild(card);
+        });
+      } else {
+        callout.classList.remove('visible');
+      }
+    }
+
+    function renderDrawnTiles() {
+      const box = document.getElementById('drawn-tiles');
+      const tag = document.getElementById('hand-dock-tag');
+      tag.textContent = state.drawMode === 'draft' ? '3択からえらぶ (Q/E)' : 'ひいた牌';
+      box.innerHTML = '';
+
+      state.drawnOptions.forEach((gKey, idx) => {
+        const g = GROUPS[gKey];
+        const chosen = idx === state.selectedDraftIdx;
+        const tile = document.createElement('button');
+        tile.className = `donjara-tile ${chosen ? 'chosen' : ''}`;
+        tile.style.background = g.bg;
+        tile.style.color = g.fg;
+        tile.onclick = () => selectDraft(idx);
+        tile.innerHTML = `
+          <span class="tile-pt-pill">+${g.basePt}</span>
+          <span class="tile-formula">${g.html}</span>
+          <span class="tile-jp">${g.name}</span>
+        `;
+        box.appendChild(tile);
+      });
+    }
+
+    function renderBottomControls() {
+      document.getElementById('place-pos-label').textContent = `${state.selectedVertex + 1}位`;
+      document.getElementById('btn-remove').disabled = state.ring[state.selectedVertex] === 'H' || state.gameOver;
+
+      const comp = lookupCompound(state.ring);
+      const benBtn = document.getElementById('btn-ben');
+      const benSub = document.getElementById('ben-btn-sub');
+      if (comp && !state.gameOver) {
+        benBtn.disabled = false;
+        benSub.textContent = `${comp.name} (${comp.score}pt) [Space]`;
+      } else {
+        benBtn.disabled = true;
+        benSub.textContent = '役ができたら Space';
+      }
+    }
+
+    function renderAll() {
+      renderTopHud();
+      renderRing();
+      renderDrawnTiles();
+      renderBottomControls();
+    }
+
+    // =========================================================================
+    // 8. MODALS
+    // =========================================================================
+    function openModal(id) {
+      if (id === 'recipe-modal') renderRecipeModal();
+      if (id === 'ranking-modal') renderRankingModal();
+      document.getElementById(id).classList.add('open');
+      SFX.cursor();
+    }
+    function closeModals() {
+      document.querySelectorAll('.game-modal').forEach(m => m.classList.remove('open'));
+    }
+
+    function renderRecipeModal() {
+      const grid = document.getElementById('recipe-grid');
+      grid.innerHTML = '';
+      COMPOUNDS.forEach(c => {
+        const desc = c.pattern.map((g, i) => g !== 'H' ? `${i + 1}位:${GROUPS[g].html}` : null).filter(Boolean).join(' / ');
+        const el = document.createElement('div');
+        el.className = 'recipe-item';
+        el.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+            <span style="font-size:13px; font-weight:900; color:#111827;">${c.name}</span>
+            <span style="font-size:13px; font-weight:900; color:#dc2626;">${c.score}pt</span>
+          </div>
+          <div style="font-size:11px; font-weight:800; color:#0284c7; margin:3px 0;">${desc}</div>
+          <div style="font-size:11px; color:#475569; line-height:1.4;">${c.trivia}</div>
+        `;
+        grid.appendChild(el);
+      });
+    }
+
+    function renderRankingModal() {
+      const body = document.getElementById('ranking-body');
+      const list = loadRanking();
+      body.innerHTML = '';
+      if (list.length === 0) {
+        body.innerHTML = '<div style="text-align:center; padding:24px; font-weight:800; color:#64748b;">まだきろくがありません</div>';
+        return;
+      }
+      list.forEach((r, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}位`;
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#f8fafc; border:2.5px solid #111827; border-radius:10px; font-weight:900;';
+        row.innerHTML = `
+          <span>${medal}　${r.name}</span>
+          <span style="color:#dc2626; font-size:16px;">${r.score.toLocaleString()} pt</span>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    // =========================================================================
+    // 9. KEYBOARD CONTROLS (Fast Skip & Instant Retry — Sakurai #178, #209)
+    // =========================================================================
+    window.addEventListener('keydown', (e) => {
+      const anyModal = document.querySelector('.game-modal.open');
+      if (e.key === 'Escape' && anyModal) { closeModals(); return; }
+      if (e.key === 'r' || e.key === 'R') {
+        if (anyModal) closeModals();
+        else openModal('recipe-modal');
+        return;
+      }
+      if (anyModal) return;
+
+      if (state.gameOver) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (state.inCutin) revealResultPanel(currentBenComp); // Instant skip!
+          else resetGame(); // Instant retry!
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); selectVertex(state.selectedVertex + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); selectVertex(state.selectedVertex - 1); }
+      else if (e.key >= '1' && e.key <= '6') { selectVertex(Number(e.key) - 1); }
+      else if (e.key === 'Enter' || e.key === 'z' || e.key === 'Z') { e.preventDefault(); actionPlace(); }
+      else if (e.key === 'x' || e.key === 'X') { actionPass(); }
+      else if (e.key === 'd' || e.key === 'D' || e.key === 'Backspace') { e.preventDefault(); actionRemoveToH(); }
+      else if (e.key === ' ') { e.preventDefault(); triggerBen(false); }
+      else if (e.key === 'q' || e.key === 'Q') { selectDraft(state.selectedDraftIdx - 1); }
+      else if (e.key === 'e' || e.key === 'E') { selectDraft(state.selectedDraftIdx + 1); }
+    });
+
+    // =========================================================================
+    // 10. 3D MOLECULAR PHYSICS SIMULATION ENGINE (Pure Canvas 3D Toon CPK)
+    //     - Real 3D geometry for benzene + all 8 functional groups
+    //     - Spring-physics assembly animation (atoms fly in & bond!)
+    //     - Thermal vibration simulation (300K <-> 1200K) + Drag 3D rotation
+    // =========================================================================
+    const ATOM_STYLE = {
+      C:  { r: 15, color: '#334155', hi: '#94a3b8', mass: 12.011 },
+      H:  { r: 9.5, color: '#f8fafc', hi: '#ffffff', mass: 1.008 },
+      O:  { r: 14, color: '#ef4444', hi: '#fca5a5', mass: 15.999 },
+      N:  { r: 14.5, color: '#3b82f6', hi: '#93c5fd', mass: 14.007 },
+      Cl: { r: 18, color: '#22c55e', hi: '#86efac', mass: 35.45 },
+      Br: { r: 20, color: '#b91c1c', hi: '#f87171', mass: 79.904 },
+      S:  { r: 18.5, color: '#eab308', hi: '#fef08a', mass: 32.06 },
+    };
+
+    const SUB_DIGITS = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+    function toSub(n) {
+      return n <= 1 ? '' : String(n).split('').map(d => SUB_DIGITS[Number(d)]).join('');
+    }
+
+    function buildMolecule3D(ring6) {
+      const atoms = []; // { el, tx, ty, tz, x, y, z, vx, vy, vz, phase, isCore }
+      const bonds = []; // { a, b, order }
+
+      const addAtom = (el, tx, ty, tz, isCore = false) => {
+        const idx = atoms.length;
+        // Start exploded outward for assembly spring animation!
+        const burst = isCore ? 1.45 : 3.2;
+        atoms.push({
+          el, tx, ty, tz,
+          x: tx * burst + (Math.random() - 0.5) * 1.4,
+          y: ty * burst + (Math.random() - 0.5) * 1.4,
+          z: tz * burst + (Math.random() - 0.5) * 2.2,
+          vx: 0, vy: 0, vz: 0,
+          phase: Math.random() * Math.PI * 2,
+          isCore
+        });
+        return idx;
+      };
+
+      // 6 Ring Carbons (R = 1.40 Å)
+      const R = 1.40;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * 60 - 90) * (Math.PI / 180);
+        addAtom('C', Math.cos(ang) * R, Math.sin(ang) * R, 0, true);
+      }
+      for (let i = 0; i < 6; i++) {
+        bonds.push({ a: i, b: (i + 1) % 6, order: i % 2 === 0 ? 2 : 1 });
+      }
+
+      // Attach each substituent along radial outward vector u = (ux, uy, 0), tangent t = (-uy, ux, 0), normal z = (0, 0, 1)
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * 60 - 90) * (Math.PI / 180);
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        const tx = -uy, ty = ux;
+        const cx = ux * R, cy = uy * R;
+        const g = ring6[i];
+
+        if (g === 'H') {
+          const h = addAtom('H', cx + ux * 1.09, cy + uy * 1.09, 0);
+          bonds.push({ a: i, b: h, order: 1 });
+        } else if (g === 'CH3') {
+          const c = addAtom('C', cx + ux * 1.51, cy + uy * 1.51, 0);
+          bonds.push({ a: i, b: c, order: 1 });
+          // 3 tetrahedral Hydrogens
+          for (let k = 0; k < 3; k++) {
+            const phi = (k * 120 + 30) * (Math.PI / 180);
+            const h = addAtom('H',
+              cx + ux * 1.92 + tx * Math.cos(phi) * 0.96,
+              cy + uy * 1.92 + ty * Math.cos(phi) * 0.96,
+              Math.sin(phi) * 0.96
+            );
+            bonds.push({ a: c, b: h, order: 1 });
+          }
+        } else if (g === 'OH') {
+          const o = addAtom('O', cx + ux * 1.38, cy + uy * 1.38, 0);
+          bonds.push({ a: i, b: o, order: 1 });
+          const h = addAtom('H', cx + ux * 1.76 + tx * 0.85, cy + uy * 1.76 + ty * 0.85, 0.28);
+          bonds.push({ a: o, b: h, order: 1 });
+        } else if (g === 'Cl') {
+          const cl = addAtom('Cl', cx + ux * 1.74, cy + uy * 1.74, 0);
+          bonds.push({ a: i, b: cl, order: 1 });
+        } else if (g === 'Br') {
+          const br = addAtom('Br', cx + ux * 1.90, cy + uy * 1.90, 0);
+          bonds.push({ a: i, b: br, order: 1 });
+        } else if (g === 'NH2') {
+          const n = addAtom('N', cx + ux * 1.40, cy + uy * 1.40, 0);
+          bonds.push({ a: i, b: n, order: 1 });
+          const h1 = addAtom('H', cx + ux * 1.85 + tx * 0.78, cy + uy * 1.85 + ty * 0.78, 0.42);
+          const h2 = addAtom('H', cx + ux * 1.85 - tx * 0.78, cy + uy * 1.85 - ty * 0.78, 0.42);
+          bonds.push({ a: n, b: h1, order: 1 });
+          bonds.push({ a: n, b: h2, order: 1 });
+        } else if (g === 'NO2') {
+          const n = addAtom('N', cx + ux * 1.47, cy + uy * 1.47, 0);
+          bonds.push({ a: i, b: n, order: 1 });
+          const o1 = addAtom('O', cx + ux * 2.08 + tx * 1.05, cy + uy * 2.08 + ty * 1.05, 0.16);
+          const o2 = addAtom('O', cx + ux * 2.08 - tx * 1.05, cy + uy * 2.08 - ty * 1.05, -0.16);
+          bonds.push({ a: n, b: o1, order: 2 });
+          bonds.push({ a: n, b: o2, order: 1 });
+        } else if (g === 'COOH') {
+          const c = addAtom('C', cx + ux * 1.50, cy + uy * 1.50, 0);
+          bonds.push({ a: i, b: c, order: 1 });
+          const o1 = addAtom('O', cx + ux * 2.12 + tx * 1.04, cy + uy * 2.12 + ty * 1.04, 0.12);
+          const o2 = addAtom('O', cx + ux * 2.16 - tx * 1.04, cy + uy * 2.16 - ty * 1.04, -0.12);
+          const h  = addAtom('H', cx + ux * 2.85 - tx * 0.85, cy + uy * 2.85 - ty * 0.85, -0.35);
+          bonds.push({ a: c, b: o1, order: 2 });
+          bonds.push({ a: c, b: o2, order: 1 });
+          bonds.push({ a: o2, b: h, order: 1 });
+        } else if (g === 'SO3H') {
+          const s = addAtom('S', cx + ux * 1.76, cy + uy * 1.76, 0);
+          bonds.push({ a: i, b: s, order: 1 });
+          const o1 = addAtom('O', cx + ux * 2.35 + tx * 1.08, cy + uy * 2.35 + ty * 1.08, 0.65);
+          const o2 = addAtom('O', cx + ux * 2.35 - tx * 1.08, cy + uy * 2.35 - ty * 1.08, 0.65);
+          const o3 = addAtom('O', cx + ux * 2.42, cy + uy * 2.42, -1.12);
+          const h  = addAtom('H', cx + ux * 3.15, cy + uy * 3.15, -1.35);
+          bonds.push({ a: s, b: o1, order: 2 });
+          bonds.push({ a: s, b: o2, order: 2 });
+          bonds.push({ a: s, b: o3, order: 1 });
+          bonds.push({ a: o3, b: h, order: 1 });
+        }
+      }
+
+      // Compute exact chemical formula (Hill system: C, H, then alphabetical) & molar mass
+      const counts = {};
+      let mass = 0;
+      atoms.forEach(a => {
+        counts[a.el] = (counts[a.el] || 0) + 1;
+        mass += ATOM_STYLE[a.el].mass;
+      });
+      const order = ['C', 'H', ...Object.keys(counts).filter(k => k !== 'C' && k !== 'H').sort()];
+      const formula = order.filter(k => counts[k]).map(k => `${k}${toSub(counts[k])}`).join('');
+
+      return { atoms, bonds, formula, mass };
+    }
+
+    const molSim = {
+      running: false,
+      rafId: null,
+      mol: null,
+      rotX: 0.42,
+      rotY: 0.25,
+      velY: 0.014,
+      hotMode: false,
+      dragging: false,
+      lastX: 0,
+      lastY: 0,
+      time: 0,
+    };
+
+    function startMolSim(ring6) {
+      stopMolSim();
+      molSim.mol = buildMolecule3D(ring6);
+      molSim.rotX = 0.42;
+      molSim.rotY = -0.35;
+      molSim.velY = 0.015;
+      molSim.hotMode = false;
+      molSim.time = 0;
+      molSim.running = true;
+
+      const meta = document.getElementById('mol-meta-txt');
+      meta.textContent = `${molSim.mol.formula} · ${molSim.mol.mass.toFixed(1)} g/mol`;
+      const heatBtn = document.getElementById('btn-mol-heat');
+      heatBtn.classList.remove('is-hot');
+      heatBtn.textContent = '🔥 加熱 (300K)';
+
+      const canvas = document.getElementById('mol-sim-canvas');
+      if (canvas && !canvas.dataset.bound) {
+        canvas.dataset.bound = '1';
+        canvas.addEventListener('pointerdown', (e) => {
+          molSim.dragging = true;
+          molSim.lastX = e.clientX;
+          molSim.lastY = e.clientY;
+          canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', (e) => {
+          if (!molSim.dragging) return;
+          const dx = e.clientX - molSim.lastX;
+          const dy = e.clientY - molSim.lastY;
+          molSim.rotY += dx * 0.012;
+          molSim.rotX += dy * 0.012;
+          molSim.lastX = e.clientX;
+          molSim.lastY = e.clientY;
+        });
+        const endDrag = () => { molSim.dragging = false; };
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+      }
+
+      molSimLoop();
+    }
+
+    function stopMolSim() {
+      molSim.running = false;
+      if (molSim.rafId) {
+        cancelAnimationFrame(molSim.rafId);
+        molSim.rafId = null;
+      }
+    }
+
+    function toggleMolHeat() {
+      molSim.hotMode = !molSim.hotMode;
+      const b = document.getElementById('btn-mol-heat');
+      b.classList.toggle('is-hot', molSim.hotMode);
+      b.textContent = molSim.hotMode ? '🔥 超高温 (1200K!)' : '🔥 加熱 (300K)';
+      SFX.cursor();
+    }
+
+    function replayMolAssembly() {
+      if (!molSim.mol) return;
+      molSim.mol.atoms.forEach(a => {
+        const burst = a.isCore ? 1.55 : 3.4;
+        a.x = a.tx * burst + (Math.random() - 0.5) * 1.4;
+        a.y = a.ty * burst + (Math.random() - 0.5) * 1.4;
+        a.z = a.tz * burst + (Math.random() - 0.5) * 2.2;
+        a.vx = 0; a.vy = 0; a.vz = 0;
+      });
+      SFX.place(3);
+    }
+
+    function molSimLoop() {
+      if (!molSim.running || !molSim.mol) return;
+      molSim.time += 0.045;
+
+      const canvas = document.getElementById('mol-sim-canvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const cw = canvas.clientWidth || 420;
+      const ch = canvas.clientHeight || 280;
+      if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) {
+        canvas.width = Math.round(cw * dpr);
+        canvas.height = Math.round(ch * dpr);
+      }
+      const c = canvas.getContext('2d');
+      c.save();
+      c.scale(dpr, dpr);
+      c.clearRect(0, 0, cw, ch);
+
+      // Subtle sci-fi radar rings on background
+      c.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.arc(cw / 2, ch / 2, Math.min(cw, ch) * 0.38, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(cw / 2, ch / 2, Math.min(cw, ch) * 0.22, 0, Math.PI * 2); c.stroke();
+
+      // Auto-rotate gently when not dragging
+      if (!molSim.dragging) {
+        molSim.rotY += molSim.hotMode ? 0.026 : molSim.velY;
+      }
+
+      // Spring physics toward target equilibrium + thermal vibration!
+      const kSpring = 0.11;
+      const damping = 0.78;
+      const vibAmp = molSim.hotMode ? 0.14 : 0.022;
+      const vibFreq = molSim.hotMode ? 9.5 : 3.2;
+
+      const cosX = Math.cos(molSim.rotX), sinX = Math.sin(molSim.rotX);
+      const cosY = Math.cos(molSim.rotY), sinY = Math.sin(molSim.rotY);
+
+      const fov = 360;
+      const camZ = 9.8;
+      const scaleFactor = Math.min(cw, ch) * 0.135;
+
+      const projected = molSim.mol.atoms.map((a, idx) => {
+        // Spring force to equilibrium
+        a.vx = (a.vx + (a.tx - a.x) * kSpring) * damping;
+        a.vy = (a.vy + (a.ty - a.y) * kSpring) * damping;
+        a.vz = (a.vz + (a.tz - a.z) * kSpring) * damping;
+        a.x += a.vx;
+        a.y += a.vy;
+        a.z += a.vz;
+
+        // Thermal vibration offset
+        const t = molSim.time * vibFreq + a.phase;
+        const vx = a.x + Math.sin(t * 1.1) * vibAmp;
+        const vy = a.y + Math.cos(t * 1.3) * vibAmp;
+        const vz = a.z + Math.sin(t * 0.9 + 1.2) * vibAmp;
+
+        // Rotate Y then X
+        const x1 = vx * cosY + vz * sinY;
+        const z1 = -vx * sinY + vz * cosY;
+        const y2 = vy * cosX - z1 * sinX;
+        const z2 = vy * sinX + z1 * cosX;
+
+        const persp = fov / (camZ - z2);
+        return {
+          idx, el: a.el,
+          sx: cw / 2 + x1 * persp * (scaleFactor / 36),
+          sy: ch / 2 + y2 * persp * (scaleFactor / 36),
+          z: z2,
+          persp: persp / 36
+        };
+      });
+
+      // Build render queue (bonds + atoms sorted back-to-front by Z)
+      const queue = [];
+      molSim.mol.bonds.forEach(b => {
+        const pa = projected[b.a];
+        const pb = projected[b.b];
+        queue.push({ kind: 'bond', z: (pa.z + pb.z) / 2 - 0.05, pa, pb, order: b.order });
+      });
+      projected.forEach(p => queue.push({ kind: 'atom', z: p.z, p }));
+      queue.sort((u, v) => u.z - v.z);
+
+      // Draw sorted 3D elements with crisp toon black outlines
+      queue.forEach(item => {
+        if (item.kind === 'bond') {
+          const { pa, pb, order } = item;
+          const dx = pb.sx - pa.sx, dy = pb.sy - pa.sy;
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len, ny = dx / len;
+          const drawStick = (ox, oy, w) => {
+            c.lineCap = 'round';
+            c.strokeStyle = '#090d16';
+            c.lineWidth = w + 4;
+            c.beginPath(); c.moveTo(pa.sx + ox, pa.sy + oy); c.lineTo(pb.sx + ox, pb.sy + oy); c.stroke();
+            c.strokeStyle = '#cbd5e1';
+            c.lineWidth = w;
+            c.beginPath(); c.moveTo(pa.sx + ox, pa.sy + oy); c.lineTo(pb.sx + ox, pb.sy + oy); c.stroke();
+          };
+          if (order === 2) {
+            drawStick(nx * 3.8, ny * 3.8, 3.6);
+            drawStick(-nx * 3.8, -ny * 3.8, 3.6);
+          } else {
+            drawStick(0, 0, 5.2);
+          }
+        } else {
+          const { p } = item;
+          const st = ATOM_STYLE[p.el];
+          const rad = Math.max(4, st.r * p.persp * 0.95);
+
+          // Sphere body with toon lighting gradient
+          const grad = c.createRadialGradient(p.sx - rad * 0.32, p.sy - rad * 0.32, rad * 0.12, p.sx, p.sy, rad);
+          grad.addColorStop(0, st.hi);
+          grad.addColorStop(0.65, st.color);
+          grad.addColorStop(1, '#0f172a');
+
+          c.beginPath();
+          c.arc(p.sx, p.sy, rad, 0, Math.PI * 2);
+          c.fillStyle = grad;
+          c.fill();
+          c.strokeStyle = '#090d16';
+          c.lineWidth = 2.6;
+          c.stroke();
+
+          // Element symbol on larger atoms
+          if (rad >= 11 && p.el !== 'H') {
+            c.fillStyle = (p.el === 'S' || p.el === 'Cl') ? '#111827' : '#ffffff';
+            c.font = `900 ${Math.round(rad * 0.85)}px sans-serif`;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(p.el, p.sx, p.sy + 0.5);
+          }
+        }
+      });
+
+      // Hot mode temperature glow border
+      if (molSim.hotMode) {
+        c.strokeStyle = 'rgba(239, 68, 68, 0.55)';
+        c.lineWidth = 6;
+        c.strokeRect(3, 3, cw - 6, ch - 6);
+      }
+
+      c.restore();
+      molSim.rafId = requestAnimationFrame(molSimLoop);
+    }
+
+    // Boot
+    resetGame();
+  </script>
+</body>
+</html>
